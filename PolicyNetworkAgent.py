@@ -22,7 +22,7 @@ class NeuralNet(nn.Module):
         # Define the forward pass
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = torch.softmax(self.fc3(x), dim=1)
+        x = torch.softmax(self.fc3(x), dim=0)
         return x
 
 
@@ -42,8 +42,8 @@ class REINFORCEAgent:
         with torch.no_grad():
             a_probs = self.pi.forward(state)
             m = Categorical(a_probs)
-            action = m.sample().item()
-            return action, m.log_prob(action)
+            action = m.sample()
+            return action.item(), m.log_prob(action)
 
 
 class DQNAgent:

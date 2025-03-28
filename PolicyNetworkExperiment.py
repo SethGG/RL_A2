@@ -1,12 +1,12 @@
 import numpy as np
 import gymnasium as gym
 from Helper import LearningCurvePlot, smooth
-from DQNAgent import DQNAgent
+from PolicyNetworkAgent import REINFORCEAgent
 import os
 import torch.multiprocessing as mp
 
 
-def evaluation(agent: DQNAgent):
+def evaluation(agent):
     # Evaluate the agent's performance in the environment
     env = gym.make('CartPole-v1')
     s, info = env.reset()
@@ -19,6 +19,50 @@ def evaluation(agent: DQNAgent):
         episode_return += r
         s = s_next
     return episode_return
+
+
+def run_single_repetition_REINFORCE(task):
+    config_id, rep_id, n_envsteps, eval_interval, params = task
+    alpha = params["alpha"]
+    gamma = params["gamma"]
+    hidden_dim = params["hidden_dim"]
+
+    env = gym.make('CartPole-v1')
+    n_actions = env.action_space.n
+    n_states = env.observation_space.shape[0]
+
+    agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim)
+
+    s, info = env.reset()
+    done = False
+    trunc = False
+    envsteps = 0
+
+    while envsteps < n_envsteps:
+        trace_log_probs = []
+        trace_rewards = []
+        while not done and not trunc:
+            a, log_prob = agent.select_action(s)
+            trace_log_probs.append(log_prob)
+            s, r, done, trunc, info = env.step(a)
+            trace_rewards.append(r)
+
+            envsteps += 1
+            if envsteps == n_envsteps:
+                break
+
+        trace_returns = []
+        for t in range(len(trace_rewards)):
+            R_t = 0
+            for i, r in enumerate(trace_rewards[t:]):
+                R_t += r * gamma ** i
+            trace_returns.append(R_t)
+
+        trace_policy_loss = []
+        for log_prob, R_t in zip(trace_log_probs, trace_returns):
+            trace_policy_loss.append(-log_prob * R_t)
+
+    # de echte gradient descent moet in een update function in the agent
 
 
 def run_single_repetition(task):
