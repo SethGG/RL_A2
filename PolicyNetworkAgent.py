@@ -7,8 +7,9 @@ from collections import deque
 
 
 class NeuralNet(nn.Module):
-    def __init__(self, input_dim, output_dim, device, hidden_dim):
+    def __init__(self, input_dim, output_dim, device, hidden_dim, softmax_output):
         super(NeuralNet, self).__init__()
+        self.softmax_output = softmax_output
         # Define the layers of the neural network
         self.fc1 = nn.Linear(input_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
@@ -21,7 +22,10 @@ class NeuralNet(nn.Module):
         # Define the forward pass
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = torch.softmax(self.fc3(x), dim=-1)
+        if self.softmax_output:
+            x = torch.softmax(self.fc3(x), dim=-1)
+        else:
+            x = self.fc3(x)
         return x
 
 
@@ -74,3 +78,65 @@ class REINFORCEAgent:
         self.optimizer.zero_grad()
         policy_loss.backward()
         self.optimizer.step()
+
+
+class ActorCriticAgent:
+    def __init__(self, n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes):
+        self.gamma = gamma
+        self.estim_depth = estim_depth
+        self.update_episodes = update_episodes
+
+        # Set the device to GPU if available, otherwise CPU
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.pi = NeuralNet(n_states, n_actions, self.device, hidden_dim, softmax_output=True)
+        self.optimizer = optim.Adam(self.pi.parameters(), lr=alpha)  # Adam optimizer
+        self.V = NeuralNet(n_states, 1, self.device, hidden_dim, softmax_output=False)
+
+    def select_action_sample(self, state):
+        state = torch.tensor(state, dtype=torch.float, device=self.device)
+        with torch.no_grad():
+            action_probs = self.pi.forward(state)
+        m = Categorical(action_probs)
+        action = m.sample().item()
+        return action
+
+    def select_action_greedy(self, state):
+        state = torch.tensor(state, dtype=torch.float, device=self.device)
+        with torch.no_grad():
+            action_probs = self.pi.forward(state)
+        action = torch.argmax(action_probs).item()
+        return action
+
+    def update(self, trace_states, trace_actions, trace_rewards, trace_start_idx):
+        # Q_hat voor elke episode parralel berekenen
+
+        Q_hat = []
+
+        def compute_n_step_returns(trace_rewards):
+            trace_returns = deque()
+            R_t = 0
+            for r in reversed(trace_rewards[i]):
+                R_t = r + self.gamma * R_t
+                trace_returns.appendleft(R_t)
+            trace_returns = torch.tensor(trace_returns, dtype=torch.float, device=self.device)
+
+            for t in len(trace_returns):
+                n_step = min(t+self.estim_depth, len(trace_returns))
+                with torch.no_grad():
+                    return trace_returns[n_step] + self.gamma ** self.estim_depth * self.V.forward(n_step)
+
+        for i in len(trace_rewards):
+            trace_returns = deque()
+            R_t = 0
+            for r in reversed(trace_rewards[i]):
+                R_t = r + self.gamma * R_t
+                trace_returns.appendleft(R_t)
+            trace_returns = torch.tensor(trace_returns, dtype=torch.float, device=self.device)
+
+            for t in len(trace_returns):
+                n_step = min(t+self.estim_depth, len(trace_returns))
+                with torch.no_grad():
+                    Q_hat.append(trace_returns[n_step] + self.gamma **
+                                 self.estim_depth * self.V.forward(n_step))
+                update_state_actions.append((trace_states[i][t], trace_actions[i][t]))
+        Q_hat = torch.stack(Q_hat)

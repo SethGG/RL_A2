@@ -128,7 +128,7 @@ def create_plot(outdir, param_combinations, n_repetitions, n_envsteps, eval_inte
 
 if __name__ == '__main__':
     param_combinations = [
-        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True}
+        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
         {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
     ]
 
