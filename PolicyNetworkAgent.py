@@ -21,13 +21,14 @@ class NeuralNet(nn.Module):
         # Define the forward pass
         x = torch.relu(self.fc1(x))
         x = torch.relu(self.fc2(x))
-        x = torch.softmax(self.fc3(x), dim=0)
+        x = torch.softmax(self.fc3(x), dim=-1)
         return x
 
 
 class REINFORCEAgent:
-    def __init__(self, n_actions, n_states, alpha, gamma, hidden_dim):
+    def __init__(self, n_actions, n_states, alpha, gamma, hidden_dim, normalize):
         self.gamma = gamma
+        self.normalize = normalize
 
         # Set the device to GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -58,9 +59,10 @@ class REINFORCEAgent:
         trace_returns = torch.tensor(trace_returns, dtype=torch.float, device=self.device)
 
         # normalize returns
-        trace_returns = (trace_returns - trace_returns.mean()) / trace_returns.std()
+        if self.normalize:
+            trace_returns = (trace_returns - trace_returns.mean()) / trace_returns.std()
 
-        trace_states = torch.tensor(np.array(trace_states), dtype=torch.float, device=self.device)
+        trace_states = torch.tensor(trace_states, dtype=torch.float, device=self.device)
         trace_actions = torch.tensor(trace_actions, dtype=torch.int, device=self.device)
 
         trace_action_probs = self.pi.forward(trace_states)

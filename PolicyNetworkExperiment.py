@@ -26,13 +26,14 @@ def run_single_repetition(task):
     alpha = params["alpha"]
     gamma = params["gamma"]
     hidden_dim = params["hidden_dim"]
+    normalize = params["normalize"]
 
     env = gym.make('CartPole-v1')
     n_actions = env.action_space.n
     n_states = env.observation_space.shape[0]
     eval_returns = np.zeros(int(n_envsteps / eval_interval))
 
-    agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim)
+    agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
 
     envstep = 0
     eval_num = 0
@@ -63,11 +64,79 @@ def run_single_repetition(task):
             if envstep == n_envsteps:
                 break
 
+        trace_states = np.array(trace_states)
         agent.update(trace_states, trace_actions, trace_rewards)
+
+    return config_id, eval_returns
 
     # de echte gradient descent moet in een update function in the agent
     # dingen om te testen: met en zonder normalization, alleen de volledige return gebruiken
 
 
+def conf_filename(outdir, params, suffix):
+    # Generate a filename for saving results based on parameters
+    filename = "_".join(f"{key}_{value}" for key, value in params.items()) + f"_{suffix}.csv"
+    return os.path.join(outdir, filename)
+
+
+def run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval):
+    # Run experiments with different parameter combinations
+    processes = 3  # Number of parallel processes
+
+    os.makedirs(outdir, exist_ok=True)
+
+    tasks = []
+    for config_id, params in enumerate(param_combinations):
+        if params in (t[-1] for t in tasks):
+            print(f"Configuration {config_id+1} is already present in the task list. Skipping...")
+            continue
+        if os.path.exists(conf_filename(outdir, params, "eval")):
+            print(f"Results for configuration {config_id+1} already exist. Skipping...")
+            continue
+        for rep_id in range(n_repetitions):
+            tasks.append((config_id, rep_id, n_envsteps, eval_interval, params))
+
+    results_by_config = {}
+
+    with mp.Pool(processes=processes) as pool:
+        for config_id, result_eval in pool.imap(run_single_repetition, tasks):
+            if config_id not in results_by_config:
+                results_by_config[config_id] = []
+            results_by_config[config_id].append(result_eval)
+
+            if len(results_by_config[config_id]) == n_repetitions:
+                results_eval = np.array(results_by_config[config_id])
+                np.savetxt(conf_filename(outdir, param_combinations[config_id], "eval"), results_eval, delimiter=",")
+
+
+def create_plot(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval, title, label_params, plotfile):
+    # Create plots for the experiment results
+    smoothing_window = 31
+    plot = LearningCurvePlot(title)
+
+    for params in param_combinations:
+        results_eval = np.loadtxt(conf_filename(outdir, params, "eval"), delimiter=",", ndmin=2)
+        mean_results_eval = np.mean(results_eval, axis=0)
+        conf_results_eval = np.std(results_eval, axis=0) / np.sqrt(n_repetitions)
+
+        plot.add_curve(range(eval_interval, n_envsteps+eval_interval, eval_interval), smooth(mean_results_eval,
+                       window=smoothing_window), smooth(conf_results_eval, window=smoothing_window),
+                       label=", ".join(f"{p}: {params[p]}" for p in label_params))
+
+    plot.save(name=plotfile)
+
+
 if __name__ == '__main__':
-    run_single_repetition((0, 0, 50000, 1000, {'alpha': 0, 'gamma': 1, 'hidden_dim': 128}))
+    param_combinations = [
+        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True}
+        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
+    ]
+
+    n_repetitions = 5  # Number of repetitions for each experiment
+    n_envsteps = 1000000  # Number of environment steps
+    eval_interval = 1000  # Interval for evaluation
+    outdir = f"evaluations_{n_envsteps}_envsteps"  # Output directory for results
+
+    run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval)
+    create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
+                eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
