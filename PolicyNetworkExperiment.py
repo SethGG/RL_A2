@@ -36,11 +36,10 @@ def run_single_repetition(task):
     n_states = env.observation_space.shape[0]
     eval_returns = np.zeros(int(n_envsteps / eval_interval))
 
-    print(algo)
     if algo == "REINFORCE":
         agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
     elif algo == "AC":
-        agent == ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes)
+        agent = ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes)
 
     envstep = 0
     eval_num = 0
@@ -149,3 +148,5 @@ if __name__ == '__main__':
     run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval)
     create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
                 eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
+
+    # run_single_repetition((0, 0, n_envsteps, eval_interval, param_combinations[0]))

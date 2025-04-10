@@ -118,15 +118,18 @@ class ActorCriticAgent:
         return action
 
     def update(self, trace_states, trace_actions, trace_rewards):
-        if self.estim_depth > len(trace_rewards) - 1:
-            V_target_states = torch.tensor(trace_states[self.estim_depth:], dtype=torch.float, device=self.device)
+        trace_states = torch.tensor(trace_states, dtype=torch.float, device=self.device)
+        trace_actions = torch.tensor(trace_actions, dtype=torch.int, device=self.device)
+
+        if self.estim_depth < len(trace_rewards) - 1:
+            V_target_states = trace_states[self.estim_depth:]
             with torch.no_grad():
                 V_target_pred = self.V.forward(V_target_states)
 
             n_step_rewards = [trace_rewards[i:i+self.estim_depth] for i in range(len(trace_rewards) - self.estim_depth)]
             n_step_rewards = torch.tensor(n_step_rewards, dtype=torch.float, device=self.device)
 
-            n_step_returns = V_target_pred
+            n_step_returns = V_target_pred.squeeze(-1)
             for step_rewards in reversed(n_step_rewards.T):
                 n_step_returns *= self.gamma
                 n_step_returns += step_rewards
@@ -153,7 +156,7 @@ class ActorCriticAgent:
         if self.update_count < self.update_episodes:
             return
 
-        V_current = self.V.forward(self.update_states)
+        V_current = self.V.forward(self.update_states).squeeze(-1)
         V_loss = F.mse_loss(self.Q_hat, V_current, reduction='sum')
 
         self.optimizer_V.zero_grad()
@@ -162,7 +165,7 @@ class ActorCriticAgent:
 
         pi_action_probs = self.pi.forward(self.update_states)
         pi_m = Categorical(pi_action_probs)
-        pi_log_probs = pi_m.log_prob(trace_actions)
+        pi_log_probs = pi_m.log_prob(self.update_actions)
         pi_loss = (-1 * pi_log_probs * self.Q_hat).sum()
 
         self.optimizer_pi.zero_grad()
