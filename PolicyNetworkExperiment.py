@@ -1,7 +1,7 @@
 import numpy as np
 import gymnasium as gym
 from Helper import LearningCurvePlot, smooth
-from PolicyNetworkAgent import REINFORCEAgent
+from PolicyNetworkAgent import REINFORCEAgent, ActorCriticAgent
 import os
 import torch.multiprocessing as mp
 
@@ -23,17 +23,24 @@ def evaluation(agent: REINFORCEAgent):
 
 def run_single_repetition(task):
     config_id, rep_id, n_envsteps, eval_interval, params = task
+    algo = params["algo"]
     alpha = params["alpha"]
     gamma = params["gamma"]
     hidden_dim = params["hidden_dim"]
     normalize = params["normalize"]
+    estim_depth = params["estim_depth"]
+    update_episodes = params["update_episodes"]
 
     env = gym.make('CartPole-v1')
     n_actions = env.action_space.n
     n_states = env.observation_space.shape[0]
     eval_returns = np.zeros(int(n_envsteps / eval_interval))
 
-    agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
+    print(algo)
+    if algo == "REINFORCE":
+        agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
+    elif algo == "AC":
+        agent == ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes)
 
     envstep = 0
     eval_num = 0
@@ -128,8 +135,10 @@ def create_plot(outdir, param_combinations, n_repetitions, n_envsteps, eval_inte
 
 if __name__ == '__main__':
     param_combinations = [
-        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
-        {"alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
+        # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
+        # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 1, "update_episodes": 10, "normalize": None}
     ]
 
     n_repetitions = 5  # Number of repetitions for each experiment
