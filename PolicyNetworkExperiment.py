@@ -139,7 +139,7 @@ if __name__ == '__main__':
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
-            "estim_depth": 50, "update_episodes": 3, "normalize": None, "use_advantage": False}
+            "estim_depth": 50, "update_episodes": 3, "normalize": None, "use_advantage": True}
     ]
 
     n_repetitions = 5  # Number of repetitions for each experiment
