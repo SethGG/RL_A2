@@ -92,6 +92,8 @@ class ActorCriticAgent:
         self.optimizer = optim.Adam(self.pi.parameters(), lr=alpha)  # Adam optimizer
         self.V = NeuralNet(n_states, 1, self.device, hidden_dim, softmax_output=False)
 
+        self.update_count = 0
+
     def select_action_sample(self, state):
         state = torch.tensor(state, dtype=torch.float, device=self.device)
         with torch.no_grad():
@@ -107,36 +109,31 @@ class ActorCriticAgent:
         action = torch.argmax(action_probs).item()
         return action
 
-    def update(self, trace_states, trace_actions, trace_rewards, trace_start_idx):
-        # Q_hat voor elke episode parralel berekenen
-
-        Q_hat = []
-
-        def compute_n_step_returns(trace_rewards):
-            trace_returns = deque()
+    def update(self, trace_states, trace_actions, trace_rewards):
+        def mc_discounted_returns(rewards):
+            returns = deque()
             R_t = 0
-            for r in reversed(trace_rewards[i]):
+            for r in reversed(rewards):
                 R_t = r + self.gamma * R_t
-                trace_returns.appendleft(R_t)
-            trace_returns = torch.tensor(trace_returns, dtype=torch.float, device=self.device)
+                returns.appendleft(R_t)
+            return returns
 
-            for t in len(trace_returns):
-                n_step = min(t+self.estim_depth, len(trace_returns))
-                with torch.no_grad():
-                    return trace_returns[n_step] + self.gamma ** self.estim_depth * self.V.forward(n_step)
+        terminal_rewards = trace_rewards[-self.estim_depth:]
+        terminal_returns = mc_discounted_returns(terminal_rewards)
 
-        for i in len(trace_rewards):
-            trace_returns = deque()
-            R_t = 0
-            for r in reversed(trace_rewards[i]):
-                R_t = r + self.gamma * R_t
-                trace_returns.appendleft(R_t)
-            trace_returns = torch.tensor(trace_returns, dtype=torch.float, device=self.device)
+        Q_hat = terminal_returns
 
-            for t in len(trace_returns):
-                n_step = min(t+self.estim_depth, len(trace_returns))
-                with torch.no_grad():
-                    Q_hat.append(trace_returns[n_step] + self.gamma **
-                                 self.estim_depth * self.V.forward(n_step))
-                update_state_actions.append((trace_states[i][t], trace_actions[i][t]))
-        Q_hat = torch.stack(Q_hat)
+        if self.estim_depth > len(trace_rewards) - 1:
+            V_target_states = torch.tensor(trace_states[self.estim_depth:], dtype=torch.float, device=self.device)
+            with torch.no_grad():
+                V_target_pred = self.V.forward(V_target_states)
+
+            n_step_rewards = [trace_rewards[i:i+self.estim_depth] for i in range(len(trace_rewards) - self.estim_depth)]
+            n_step_rewards = torch.tensor(n_step_rewards, dtype=torch.float, device=self.device)
+
+            n_step_returns = V_target_pred
+            for step_rewards in reversed(n_step_rewards.T):
+                n_step_returns *= self.gamma
+                n_step_returns += step_rewards
+
+            Q_hat = torch.cat((n_step_returns, terminal_returns))
