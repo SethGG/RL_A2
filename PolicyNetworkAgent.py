@@ -1,6 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 from collections import deque
@@ -36,7 +37,7 @@ class REINFORCEAgent:
 
         # Set the device to GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.pi = NeuralNet(n_states, n_actions, self.device, hidden_dim)
+        self.pi = NeuralNet(n_states, n_actions, self.device, hidden_dim, softmax_output=True)
         self.optimizer = optim.Adam(self.pi.parameters(), lr=alpha)  # Adam optimizer
 
     def select_action_sample(self, state):
@@ -89,10 +90,17 @@ class ActorCriticAgent:
         # Set the device to GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.pi = NeuralNet(n_states, n_actions, self.device, hidden_dim, softmax_output=True)
-        self.optimizer = optim.Adam(self.pi.parameters(), lr=alpha)  # Adam optimizer
+        self.optimizer_pi = optim.Adam(self.pi.parameters(), lr=alpha)  # Adam optimizer
         self.V = NeuralNet(n_states, 1, self.device, hidden_dim, softmax_output=False)
+        self.optimizer_V = optim.Adam(self.V.parameters(), lr=alpha)  # Adam optimizer
 
+        self.__reset_update_buffer()
+
+    def __reset_update_buffer(self):
         self.update_count = 0
+        self.update_states = torch.empty(0, dtype=torch.float, device=self.device)
+        self.update_actions = torch.empty(0, dtype=torch.int, device=self.device)
+        self.Q_hat = torch.empty(0, dtype=torch.float, device=self.device)
 
     def select_action_sample(self, state):
         state = torch.tensor(state, dtype=torch.float, device=self.device)
@@ -110,19 +118,6 @@ class ActorCriticAgent:
         return action
 
     def update(self, trace_states, trace_actions, trace_rewards):
-        def mc_discounted_returns(rewards):
-            returns = deque()
-            R_t = 0
-            for r in reversed(rewards):
-                R_t = r + self.gamma * R_t
-                returns.appendleft(R_t)
-            return returns
-
-        terminal_rewards = trace_rewards[-self.estim_depth:]
-        terminal_returns = mc_discounted_returns(terminal_rewards)
-
-        Q_hat = terminal_returns
-
         if self.estim_depth > len(trace_rewards) - 1:
             V_target_states = torch.tensor(trace_states[self.estim_depth:], dtype=torch.float, device=self.device)
             with torch.no_grad():
@@ -136,4 +131,42 @@ class ActorCriticAgent:
                 n_step_returns *= self.gamma
                 n_step_returns += step_rewards
 
-            Q_hat = torch.cat((n_step_returns, terminal_returns))
+            self.Q_hat = torch.cat((self.Q_hat, n_step_returns))
+
+        def mc_discounted_returns(rewards):
+            returns = deque()
+            R_t = 0
+            for r in reversed(rewards):
+                R_t = r + self.gamma * R_t
+                returns.appendleft(R_t)
+            return returns
+
+        terminal_rewards = trace_rewards[-self.estim_depth:]
+        terminal_returns = torch.tensor(mc_discounted_returns(terminal_rewards), dtype=torch.float, device=self.device)
+
+        self.Q_hat = torch.cat((self.Q_hat, terminal_returns))
+
+        self.update_states = torch.cat((self.update_states, trace_states))
+        self.update_actions = torch.cat((self.update_actions, trace_actions))
+
+        self.update_count += 1
+        if self.update_count < self.update_episodes:
+            return
+
+        V_current = self.V.forward(self.update_states)
+        V_loss = F.mse_loss(self.Q_hat, V_current, reduction='sum')
+
+        self.optimizer_V.zero_grad()
+        V_loss.backward()
+        self.optimizer_V.step()
+
+        pi_action_probs = self.pi.forward(self.update_states)
+        pi_m = Categorical(pi_action_probs)
+        pi_log_probs = pi_m.log_prob(trace_actions)
+        pi_loss = (-1 * pi_log_probs * self.Q_hat).sum()
+
+        self.optimizer_pi.zero_grad()
+        pi_loss.backward()
+        self.optimizer_pi.step()
+
+        self.__reset_update_buffer()
