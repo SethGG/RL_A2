@@ -82,10 +82,11 @@ class REINFORCEAgent:
 
 
 class ActorCriticAgent:
-    def __init__(self, n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes):
+    def __init__(self, n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes, use_advantage):
         self.gamma = gamma
         self.estim_depth = estim_depth
         self.update_episodes = update_episodes
+        self.use_advantage = use_advantage
 
         # Set the device to GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -121,7 +122,7 @@ class ActorCriticAgent:
         trace_states = torch.tensor(trace_states, dtype=torch.float, device=self.device)
         trace_actions = torch.tensor(trace_actions, dtype=torch.int, device=self.device)
 
-        if self.estim_depth < len(trace_rewards) - 1:
+        if self.estim_depth < len(trace_rewards):
             V_target_states = trace_states[self.estim_depth:]
             with torch.no_grad():
                 V_target_pred = self.V.forward(V_target_states)
@@ -157,7 +158,8 @@ class ActorCriticAgent:
             return
 
         V_current = self.V.forward(self.update_states).squeeze(-1)
-        V_loss = F.mse_loss(self.Q_hat, V_current, reduction='sum')
+        A_hat = self.Q_hat - V_current
+        V_loss = (A_hat ** 2).sum()
 
         self.optimizer_V.zero_grad()
         V_loss.backward()
@@ -166,7 +168,11 @@ class ActorCriticAgent:
         pi_action_probs = self.pi.forward(self.update_states)
         pi_m = Categorical(pi_action_probs)
         pi_log_probs = pi_m.log_prob(self.update_actions)
-        pi_loss = (-1 * pi_log_probs * self.Q_hat).sum()
+
+        if self.use_advantage:
+            pi_loss = (-1 * pi_log_probs * A_hat).sum()
+        else:
+            pi_loss = (-1 * pi_log_probs * self.Q_hat).sum()
 
         self.optimizer_pi.zero_grad()
         pi_loss.backward()

@@ -30,6 +30,7 @@ def run_single_repetition(task):
     normalize = params["normalize"]
     estim_depth = params["estim_depth"]
     update_episodes = params["update_episodes"]
+    use_advantage = params["use_advantage"]
 
     env = gym.make('CartPole-v1')
     n_actions = env.action_space.n
@@ -39,7 +40,8 @@ def run_single_repetition(task):
     if algo == "REINFORCE":
         agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
     elif algo == "AC":
-        agent = ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim, estim_depth, update_episodes)
+        agent = ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim,
+                                 estim_depth, update_episodes, use_advantage)
 
     envstep = 0
     eval_num = 0
@@ -137,7 +139,7 @@ if __name__ == '__main__':
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
-            "estim_depth": 1, "update_episodes": 10, "normalize": None}
+            "estim_depth": 50, "update_episodes": 3, "normalize": None, "use_advantage": False}
     ]
 
     n_repetitions = 5  # Number of repetitions for each experiment
