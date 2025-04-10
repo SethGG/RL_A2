@@ -24,24 +24,18 @@ def evaluation(agent: REINFORCEAgent):
 def run_single_repetition(task):
     config_id, rep_id, n_envsteps, eval_interval, params = task
     algo = params["algo"]
-    alpha = params["alpha"]
-    gamma = params["gamma"]
-    hidden_dim = params["hidden_dim"]
-    normalize = params["normalize"]
-    estim_depth = params["estim_depth"]
-    update_episodes = params["update_episodes"]
-    use_advantage = params["use_advantage"]
 
     env = gym.make('CartPole-v1')
     n_actions = env.action_space.n
     n_states = env.observation_space.shape[0]
     eval_returns = np.zeros(int(n_envsteps / eval_interval))
 
-    if algo == "REINFORCE":
-        agent = REINFORCEAgent(n_actions, n_states, alpha, gamma, hidden_dim, normalize)
+    if params["algo"] == "REINFORCE":
+        agent = REINFORCEAgent(n_actions, n_states, params["alpha"],
+                               params["gamma"], params["hidden_dim"], params["normalize"])
     elif algo == "AC":
-        agent = ActorCriticAgent(n_actions, n_states, alpha, gamma, hidden_dim,
-                                 estim_depth, update_episodes, use_advantage)
+        agent = ActorCriticAgent(n_actions, n_states, params["alpha"], params["gamma"], params["hidden_dim"],
+                                 params["estim_depth"], params["update_episodes"], params["use_advantage"])
 
     envstep = 0
     eval_num = 0
@@ -76,9 +70,6 @@ def run_single_repetition(task):
         agent.update(trace_states, trace_actions, trace_rewards)
 
     return config_id, eval_returns
-
-    # de echte gradient descent moet in een update function in the agent
-    # dingen om te testen: met en zonder normalization, alleen de volledige return gebruiken
 
 
 def conf_filename(outdir, params, suffix):
@@ -139,7 +130,7 @@ if __name__ == '__main__':
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
-            "estim_depth": 50, "update_episodes": 3, "normalize": None, "use_advantage": True}
+            "estim_depth": 50, "update_episodes": 5, "use_advantage": True}
     ]
 
     n_repetitions = 5  # Number of repetitions for each experiment
@@ -148,7 +139,7 @@ if __name__ == '__main__':
     outdir = f"evaluations_{n_envsteps}_envsteps"  # Output directory for results
 
     run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval)
+    # create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
+    #            eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
     create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
-                eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
-
-    # run_single_repetition((0, 0, n_envsteps, eval_interval, param_combinations[0]))
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c.png")
