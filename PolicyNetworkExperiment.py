@@ -130,7 +130,17 @@ if __name__ == '__main__':
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
         # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
-            "estim_depth": 50, "update_episodes": 5, "use_advantage": True}
+            "estim_depth": 1, "update_episodes": 1, "use_advantage": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 5, "update_episodes": 1, "use_advantage": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 500, "update_episodes": 1, "use_advantage": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 1, "update_episodes": 3, "use_advantage": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 5, "update_episodes": 3, "use_advantage": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 500, "update_episodes": 3, "use_advantage": True},
     ]
 
     n_repetitions = 5  # Number of repetitions for each experiment
@@ -141,5 +151,7 @@ if __name__ == '__main__':
     run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval)
     # create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
     #            eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
-    create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
-                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c.png")
+    create_plot(outdir, param_combinations[:3], n_repetitions, n_envsteps,
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c_1ep.png")
+    create_plot(outdir, param_combinations[3:], n_repetitions, n_envsteps,
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c_3ep.png")

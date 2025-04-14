@@ -195,7 +195,7 @@ class ActorCriticAgent:
         # Advantage estimation: difference between bootstrapped Q_hat and current value prediction.
         A_hat = self.Q_hat - V_current
         # Use sum squared error loss for the value network.
-        V_loss = A_hat.pow(2).sum()
+        V_loss = A_hat.pow(2).sum() / self.update_episodes
 
         self.optimizer_V.zero_grad()
         V_loss.backward()
@@ -209,10 +209,10 @@ class ActorCriticAgent:
 
         if self.use_advantage:
             # Use advantage to weight the policy loss; detach it so that gradients do not flow into the critic.
-            pi_loss = (-1 * pi_log_probs * A_hat.detach()).sum()
+            pi_loss = (-1 * pi_log_probs * A_hat.detach()).sum() / self.update_episodes
         else:
             # Alternatively, use the full Q_hat (this corresponds to vanilla actor-critic).
-            pi_loss = (-1 * pi_log_probs * self.Q_hat).sum()
+            pi_loss = (-1 * pi_log_probs * self.Q_hat).sum() / self.update_episodes
 
         self.optimizer_pi.zero_grad()
         pi_loss.backward()
