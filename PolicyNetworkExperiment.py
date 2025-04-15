@@ -127,14 +127,35 @@ def create_plot(outdir, param_combinations, n_repetitions, n_envsteps, eval_inte
 
 if __name__ == '__main__':
     param_combinations = [
-        # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
-        # {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False}
+        # REINFORCE
+        {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
+        {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": False},
+        # AC update episodes 1
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 1, "update_episodes": 1, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 5, "update_episodes": 1, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 50, "update_episodes": 1, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 500, "update_episodes": 1, "use_advantage": False},
+        # AC update episodes 3
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 1, "update_episodes": 3, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 5, "update_episodes": 3, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 50, "update_episodes": 3, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 500, "update_episodes": 3, "use_advantage": False},
+        # A2C update episodes 1
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
             "estim_depth": 1, "update_episodes": 1, "use_advantage": True},
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
             "estim_depth": 5, "update_episodes": 1, "use_advantage": True},
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
             "estim_depth": 500, "update_episodes": 1, "use_advantage": True},
+        # A2C update episodes 3
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
             "estim_depth": 1, "update_episodes": 3, "use_advantage": True},
         {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
@@ -149,9 +170,15 @@ if __name__ == '__main__':
     outdir = f"evaluations_{n_envsteps}_envsteps"  # Output directory for results
 
     run_experiments(outdir, param_combinations, n_repetitions, n_envsteps, eval_interval)
-    # create_plot(outdir, param_combinations, n_repetitions, n_envsteps,
-    #            eval_interval, "REINFORCE Learning Curve", ["normalize"], "test.png")
-    create_plot(outdir, param_combinations[:3], n_repetitions, n_envsteps,
-                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c_1ep.png")
-    create_plot(outdir, param_combinations[3:], n_repetitions, n_envsteps,
-                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "a2c_3ep.png")
+    create_plot(outdir, param_combinations[:2], n_repetitions, n_envsteps,
+                eval_interval, "REINFORCE Learning Curve", ["normalize"], "reinforce.png")
+    create_plot(outdir, param_combinations[2:6], n_repetitions, n_envsteps,
+                eval_interval, "Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "ac_1ep.png")
+    create_plot(outdir, param_combinations[6:10], n_repetitions, n_envsteps,
+                eval_interval, "Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "ac_3ep.png")
+    create_plot(outdir, param_combinations[10:13], n_repetitions, n_envsteps,
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"],
+                "a2c_1ep.png")
+    create_plot(outdir, param_combinations[13:], n_repetitions, n_envsteps,
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"],
+                "a2c_3ep.png")
