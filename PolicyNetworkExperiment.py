@@ -22,9 +22,11 @@ def evaluation(agent: REINFORCEAgent):
 
 
 def run_single_repetition(task):
+    # Run a single repetition of the experiment
     config_id, rep_id, n_envsteps, eval_interval, params = task
     algo = params["algo"]
 
+    # Create a new environment and agent for each repetition
     env = gym.make('CartPole-v1')
     n_actions = env.action_space.n
     n_states = env.observation_space.shape[0]
@@ -40,6 +42,7 @@ def run_single_repetition(task):
     envstep = 0
     eval_num = 0
     while envstep < n_envsteps:
+        # Reset the environment
         s, info = env.reset()
         done = False
         trunc = False
@@ -56,6 +59,7 @@ def run_single_repetition(task):
 
             envstep += 1
             if envstep % eval_interval == 0:
+                # Evaluate the agent periodically
                 eval_return = evaluation(agent)
                 eval_returns[eval_num] = eval_return
                 eval_num += 1
@@ -120,7 +124,7 @@ def create_plot(outdir, param_combinations, n_repetitions, n_envsteps, eval_inte
 
         plot.add_curve(range(eval_interval, n_envsteps+eval_interval, eval_interval), smooth(mean_results_eval,
                        window=smoothing_window), smooth(conf_results_eval, window=smoothing_window),
-                       label=", ".join(f"{p}: {params[p]}" for p in label_params))
+                       label=", ".join(f"{p}: {params[p]}" for p in label_params if p in params))
 
     plot.save(name=plotfile)
 
@@ -173,12 +177,26 @@ if __name__ == '__main__':
     create_plot(outdir, param_combinations[:2], n_repetitions, n_envsteps,
                 eval_interval, "REINFORCE Learning Curve", ["normalize"], "reinforce.png")
     create_plot(outdir, param_combinations[2:6], n_repetitions, n_envsteps,
-                eval_interval, "Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "ac_1ep.png")
+                eval_interval, "Actor-Critic Learning Curve", ["estim_depth"], "ac_1ep.png")
     create_plot(outdir, param_combinations[6:10], n_repetitions, n_envsteps,
-                eval_interval, "Actor-Critic Learning Curve", ["estim_depth", "update_episodes"], "ac_3ep.png")
+                eval_interval, "Actor-Critic Learning Curve", ["estim_depth"], "ac_3ep.png")
     create_plot(outdir, param_combinations[10:13], n_repetitions, n_envsteps,
-                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"],
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth"],
                 "a2c_1ep.png")
     create_plot(outdir, param_combinations[13:], n_repetitions, n_envsteps,
-                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth", "update_episodes"],
+                eval_interval, "Advantage Actor-Critic Learning Curve", ["estim_depth"],
                 "a2c_3ep.png")
+
+    # Configs for the comparison plot, uses results from assignment 1 so this won´t run if these are not present
+    comp_params = [
+        {"algo": "DQN", "gamma": 1, "alpha": 0.001, "update_freq": 4, "epsilon": 1,
+            "decay_rate": 0.9995, "hidden_dim": 128, "tn": True, "er": True},
+        {"algo": "REINFORCE", "alpha": 0.001, "gamma": 1, "hidden_dim": 128, "normalize": True},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 500, "update_episodes": 3, "use_advantage": False},
+        {"algo": "AC", "alpha": 0.001, "gamma": 1, "hidden_dim": 128,
+            "estim_depth": 5, "update_episodes": 1, "use_advantage": True},
+    ]
+
+    create_plot(outdir, comp_params, n_repetitions, n_envsteps, eval_interval, "Deep RL algorithms on CartPole-v1",
+                ["algo", "use_advantage"], "comp.png")
